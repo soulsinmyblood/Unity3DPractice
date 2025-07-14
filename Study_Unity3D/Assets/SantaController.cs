@@ -19,22 +19,28 @@ public class SantaController : MonoBehaviour
     private bool isGuarding = false;
     private float chargeTimer = 0f;
 
+    private Rigidbody rb;
+
     void Awake()
     {
         anim = GetComponent<Animator>();
+        rb = GetComponent<Rigidbody>();
     }
 
     void Update()
     {
+        // Update에서는 키보드 입력과 같이 매 프레임 확인해야 하는 것들을 처리합니다.
+        // 이동 방향을 계산하고, 애니메이션 파라미터를 설정하는 것까지는 여기서 합니다.
+        float moveX = Input.GetAxisRaw("Horizontal");
+        float moveZ = Input.GetAxisRaw("Vertical");
+        moveDirection = new Vector3(moveX, 0, moveZ).normalized;
 
-        // 1. 이동은 항상 처리 (공격 중에도 걷기 파라미터가 갱신되도록)
-        HandleMovement();
+        anim.SetBool("isWalking", moveDirection != Vector3.zero);
 
-        // 2. 가드 키 입력을 확인
+        // 가드 키 입력 확인
         HandleGuardInput();
 
-        // 3. 현재 상태에 따라 행동을 결정
-        // 회피 중일 때는 공격으로 캔슬 가능
+        // 상태에 따른 행동 시작 (물리 효과와 관련 없는 부분)
         if (isDodging)
         {
             if (Input.GetMouseButtonDown(0))
@@ -43,17 +49,22 @@ public class SantaController : MonoBehaviour
                 isAttacking = true;
                 anim.SetTrigger("Attack");
             }
-            return; // 회피 중에는 다른 행동 불가
+            return;
         }
 
-        // 공격, 차지, 가드 중일 때는 새로운 행동을 시작할 수 없음
         if (isAttacking || isCharging || isGuarding)
         {
             return;
         }
 
-        // 모든 조건이 아닐 때만 새로운 행동(공격, 회피, 차지)을 시작
         HandleActionInitiation();
+    }
+
+    void FixedUpdate()
+    {
+        // FixedUpdate에서는 물리 효과와 관련된 것을 처리합니다.
+        // 실제 캐릭터를 움직이는 것은 여기서 처리해야 합니다.
+        HandleMovement();
     }
 
     void HandleGuardInput()
@@ -64,26 +75,15 @@ public class SantaController : MonoBehaviour
 
     void HandleMovement()
     {
-        // 가드 중이 아닐 때만 키 입력을 받아서 이동 방향을 갱신
-        if (!isGuarding)
-        {
-            float moveX = Input.GetAxisRaw("Horizontal");
-            float moveZ = Input.GetAxisRaw("Vertical");
-            moveDirection = new Vector3(moveX, 0, moveZ).normalized;
-        }
-
         float currentMoveSpeed = isGuarding ? moveSpeed * guardMoveSpeedFactor : moveSpeed;
-
-        anim.SetBool("isWalking", moveDirection != Vector3.zero);
 
         if (moveDirection != Vector3.zero)
         {
-            transform.position += moveDirection * currentMoveSpeed * Time.deltaTime;
-            transform.rotation = Quaternion.LookRotation(moveDirection);
+            rb.MovePosition(rb.position + moveDirection * currentMoveSpeed * Time.fixedDeltaTime); // Time.deltaTime 대신 Time.fixedDeltaTime 사용
+            rb.MoveRotation(Quaternion.LookRotation(moveDirection)); // transform.rotation 대신 rb.MoveRotation 사용
         }
     }
 
-    // 새로운 행동을 '시작'하는 것만 담당하는 함수
     void HandleActionInitiation()
     {
         if (Input.GetMouseButtonDown(0))
@@ -119,5 +119,4 @@ public class SantaController : MonoBehaviour
     {
         isDodging = false;
     }
-
 }
